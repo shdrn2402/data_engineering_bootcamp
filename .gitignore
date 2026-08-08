@@ -1,0 +1,32 @@
+# Virtual Environments (uv использует .venv по умолчанию)
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Python cache and build directories
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDEs & Notebooks
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# Data & Logs (Критично для DE, чтобы не запушить тестовые выгрузки)
+*.csv
+*.tsv
+*.parquet
+*.json
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
