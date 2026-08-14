@@ -3,6 +3,7 @@ name = "de-zoomcamp"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
+    "boto3>=1.43.71",
     "click>=8.4.2",
     "pandas>=3.0.5",
     "pyarrow>=25.0.0",
@@ -15,4 +16,5 @@ dependencies = [
 dev = [
     "ipykernel>=7.3.0",
     "notebook>=7.6.1",
+    "ruff>=0.16.3",
 ]
