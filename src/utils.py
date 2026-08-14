@@ -1,13 +1,16 @@
 import json
 import logging
 import os
-import requests
-import yaml
-
-from dotenv import load_dotenv
 from pathlib import Path
 
+import boto3
+import botocore.exceptions
+import requests
+import yaml
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
+
 
 def load_config(config_path: str | Path, env_path: str | Path) -> dict:
     """Loads YAML configuration and injects environment variables.
@@ -29,7 +32,6 @@ def load_config(config_path: str | Path, env_path: str | Path) -> dict:
 
     try:
         config = yaml.safe_load(config_path.read_text())
-        # Inject secret directly into config state; raises KeyError if not set
         config["api_football_key"] = os.environ["API_FOOTBALL_KEY"]
     except FileNotFoundError as e:
         logger.error(f"Configuration file not found: {e}")
@@ -47,7 +49,9 @@ def load_config(config_path: str | Path, env_path: str | Path) -> dict:
     return config
 
 
-def fetch_data(url: str, headers: dict, timeout: tuple, query_params: dict | None = None) -> dict:
+def fetch_data(
+    url: str, headers: dict, timeout: tuple, query_params: dict | None = None
+) -> dict:
     """Executes a GET request to the API with rate limiting constraints.
 
     Args:
@@ -65,18 +69,15 @@ def fetch_data(url: str, headers: dict, timeout: tuple, query_params: dict | Non
         dict: JSON payload from the API response.
     """
     try:
-        # Execute GET request with timeouts and query parameters
-        response = requests.get(url, headers=headers, params=query_params, timeout=timeout)
-        
-        # Trigger an exception for 4xx and 5xx status codes (fail-fast)
+        response = requests.get(
+            url, headers=headers, params=query_params, timeout=timeout
+        )
         response.raise_for_status()
-
         data = response.json()
         if data.get("errors"):
             raise ValueError(f"API returned errors: {data['errors']}")
-        
         return data
-        
+
     except requests.exceptions.HTTPError as e:
         logger.error(f"HTTP error occurred during request to {url}: {e}")
         raise
@@ -102,4 +103,31 @@ def save_json(data: dict | list, output_path: str) -> None:
     except OSError as e:
         logger.error(f"Failed to write JSON to {output_path}: {e}")
         raise
-                
+
+
+def upload_to_s3(raw_data: dict, bucket: str, s3_key: str) -> None:
+    """Uploads a dictionary as a JSON object to an AWS S3 bucket.
+
+    Args:
+        raw_data (dict): The payload to serialize and upload.
+        bucket (str): The name of the target S3 bucket.
+        s3_key (str): The destination key (path) in the S3 bucket.
+
+    Raises:
+        botocore.exceptions.ClientError: If the AWS S3 put_object operation fails.
+        TypeError: If the data object is not JSON serializable.
+    """
+    s3 = boto3.resource("s3")
+    raw_data_json = json.dumps(raw_data, ensure_ascii=False, indent=4)
+    try:
+        s3.Bucket(bucket).put_object(Key=s3_key, Body=raw_data_json)
+    except botocore.exceptions.ClientError as e:
+        logger.error(
+            f"Failed to upload data to S3 bucket '{bucket}' at '{s3_key}': {e}"
+        )
+        raise
+    except botocore.exceptions.ParamValidationError as e:
+        logger.error(
+            f"Parameter validation error during S3 upload to bucket '{bucket}' at '{s3_key}': {e}"
+        )
+        raise
