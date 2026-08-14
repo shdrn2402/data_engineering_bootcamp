@@ -3,7 +3,7 @@ import json
 import logging
 
 from pathlib import Path
-from utils import load_config, fetch_data
+from utils import load_config, fetch_data, save_json
 
 # Configure the root logger for the entire project
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(name)s] - %(levelname)s - %(message)s")
@@ -63,9 +63,8 @@ def ingest_data(endpoint: str, league: int, season: int) -> None:
     filename = f"{endpoint}_{league}_{season}.json"
     filepath = raw_dir / filename
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(raw_data, f, ensure_ascii=False, indent=4)
-        
+    save_json(raw_data, filepath)
+    
     logger.info(f"Raw data successfully saved to {filepath}")
 
 if __name__ == "__main__":

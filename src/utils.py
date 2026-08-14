@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import requests
@@ -95,4 +96,10 @@ def save_json(data: dict | list, output_path: str) -> None:
         OSError: If directory creation or file writing fails.
         TypeError: If the data object is not JSON serializable.
     """
-    pass
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except OSError as e:
+        logger.error(f"Failed to write JSON to {output_path}: {e}")
+        raise
+                
