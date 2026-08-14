@@ -1,0 +1,13 @@
+api:
+  base_url: "https://v3.football.api-sports.io"
+  endpoints:
+    fixtures: "/fixtures"
+    teams: "/teams"
+    players: "/players"
+    statistics: "/statistics"
+  headers:
+    key_name: "x-apisports-key"
+  limits:
+    delay_seconds: 7  # Free tier limit: 10 req/min. Do not decrease to prevent 429 Too Many Requests.
+    timeout_connect: 10  # Connection timeout in seconds.
+    timeout_read: 30  # Read timeout in seconds.
