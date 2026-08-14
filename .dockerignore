@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# Environments and secrets
+.env
+venv/
+.venv/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local data and logs
+data/
+logs/
+*.json
+*.log
+
+# IDE and OS specific files
+.vscode/
+.idea/
+.DS_Store
+
+# Terraform (future-proofing)
+.terraform/
+*.tfstate
+*.tfstate.backup
