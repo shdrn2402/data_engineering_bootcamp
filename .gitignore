@@ -1,11 +1,13 @@
-# Virtual Environments (uv использует .venv по умолчанию)
+# Virtual Environments
 .env
-.venv
+.env.*
+!.env.example
+.venv/
 env/
 venv/
 ENV/
 
-# Python cache and build directories
+# Python cache, build & testing
 __pycache__/
 *.py[cod]
 *$py.class
@@ -14,18 +16,61 @@ build/
 dist/
 *.egg-info/
 .eggs/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # IDEs & Notebooks
 .vscode/
 .idea/
 .ipynb_checkpoints/
 
-# Data & Logs (Критично для DE, чтобы не запушить тестовые выгрузки)
+# Data & Logs
 *.csv
 *.tsv
 *.parquet
+*.orc
+*.avro
+*.feather
 *.json
+*.jsonl
+*.ndjson
 *.log
+
+# Databases & Local Data Warehouses
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+*.duckdb.wal
+
+# Big Data & Engine Artifacts
+spark-warehouse/
+metastore_db/
+derby.log
+checkpoint/
+.sparkStaging/
+*_delta_log/
+.iceberg-metadata/
+
+# Local Storage Emulators
+.minio.sys/
+minio-data/
+localstack/
+
+# Orchestration & Pipeline Engines
+airflow.db
+airflow.cfg
+airflow-logs/
+logs/
+.dagster/
+.prefect/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
 
 # OS
 .DS_Store
