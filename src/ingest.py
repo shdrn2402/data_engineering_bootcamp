@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -16,11 +17,11 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--endpoint",
     type=click.Choice(
-        ["fixtures", "teams", "players", "statistics"], case_sensitive=False
+        ["fixtures", "teams", "players", "transfers"], case_sensitive=False
     ),
     default="fixtures",
     required=True,
-    help="Choose the API endpoint to ingest data from. Options: fixtures, teams, players, statistics.",
+    help="Choose the API endpoint to ingest data from. Options: fixtures, teams, players, transfers.",
 )
 @click.option(
     "--league",
@@ -44,7 +45,11 @@ def ingest_data(endpoint: str, league: int, season: int) -> None:
     env_path = root_path / ".env"
 
     config = load_config(config_path, env_path)
-    logger.info(f"Configuration successfully loaded: {config}")
+    safe_config = {
+        k: ("***" if "key" in k.lower() or "secret" in k.lower() else v)
+        for k, v in config.items()
+    }
+    logger.info(f"Configuration successfully loaded: {safe_config}")
 
     # Retrieving a RAW data payload from the API
     url = config["api"]["base_url"] + config["api"]["endpoints"][endpoint]
@@ -53,16 +58,22 @@ def ingest_data(endpoint: str, league: int, season: int) -> None:
         config["api"]["limits"]["timeout_connect"],
         config["api"]["limits"]["timeout_read"],
     )
+    delay_seconds = config["api"]["limits"]["delay_seconds"]
     query_params = {"league": league, "season": season}
 
     raw_data = fetch_data(
-        url=url, headers=headers, timeout=timeout, query_params=query_params
+        url=url,
+        headers=headers,
+        timeout=timeout,
+        query_params=query_params,
+        delay_seconds=delay_seconds,
     )
     logger.info(f"Data successfully fetched. Payload snippet: {str(raw_data)[:300]}...")
 
     # Uploading the RAW data to S3
-    bucket_name = config["aws"]["s3_bucket"]
-    s3_key = f"raw/{endpoint}/league_id={league}/season={season}/data.json"
+    ingest_date = datetime.now(UTC).strftime("%Y-%m-%d")
+    bucket_name = config["s3_bucket"]
+    s3_key = f"raw/{endpoint}/league_id={league}/season={season}/ingest_date={ingest_date}/data.json"
 
     upload_to_s3(raw_data, bucket_name, s3_key)
     logger.info(

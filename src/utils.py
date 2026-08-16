@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from pathlib import Path
 
 import boto3
@@ -33,6 +34,7 @@ def load_config(config_path: str | Path, env_path: str | Path) -> dict:
     try:
         config = yaml.safe_load(config_path.read_text())
         config["api_football_key"] = os.environ["API_FOOTBALL_KEY"]
+        config["s3_bucket"] = os.environ["S3_BUCKET_NAME"]
     except FileNotFoundError as e:
         logger.error(f"Configuration file not found: {e}")
         raise
@@ -50,59 +52,102 @@ def load_config(config_path: str | Path, env_path: str | Path) -> dict:
 
 
 def fetch_data(
-    url: str, headers: dict, timeout: tuple, query_params: dict | None = None
+    url: str,
+    headers: dict,
+    timeout: tuple,
+    query_params: dict | None = None,
+    delay_seconds: int = 0,
 ) -> dict:
-    """Executes a GET request to the API with rate limiting constraints.
+    """Executes GET requests to the API, automatically handling pagination
+    and rate limiting across multiple pages.
 
     Args:
         url (str): The endpoint URL.
         headers (dict): Request headers containing authentication tokens.
         timeout (tuple): Connection and read timeouts (connect, read).
         query_params (dict | None, optional): Query string parameters. Defaults to None.
+        delay_seconds (int, optional): Sleep time between paginated requests to respect rate limits. Defaults to 0.
 
     Raises:
-        requests.exceptions.HTTPError: If the HTTP request returns an unsuccessful status code (e.g., 401, 429, 500).
+        requests.exceptions.HTTPError: If the HTTP request returns an unsuccessful status code.
         requests.exceptions.RequestException: For underlying network issues.
         ValueError: If the API response contains business logic errors despite a 200 OK status.
 
     Returns:
-        dict: JSON payload from the API response.
+        dict: Consolidated JSON payload containing all items in the 'response' array/object.
     """
-    try:
-        response = requests.get(
-            url, headers=headers, params=query_params, timeout=timeout
-        )
-        response.raise_for_status()
-        data = response.json()
-        if data.get("errors"):
-            raise ValueError(f"API returned errors: {data['errors']}")
-        return data
+    params = (query_params or {}).copy()
+    params.setdefault("page", 1)
 
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error occurred during request to {url}: {e}")
-        raise
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error occurred during request to {url}: {e}")
-        raise
+    all_records: list = []
+    current_page = 1
+    total_pages = 1
+    consolidated_payload: dict = {}
 
+    while current_page <= total_pages:
+        params["page"] = current_page
+        logger.info(f"Fetching page {current_page}/{total_pages} from {url}...")
 
-def save_json(data: dict | list, output_path: str) -> None:
-    """Saves data as a JSON file, creating parent directories if necessary.
+        try:
+            response = requests.get(
+                url, headers=headers, params=params, timeout=timeout
+            )
+            response.raise_for_status()
+            data = response.json()
 
-    Args:
-        data (dict | list): The payload to save.
-        output_path (str): The target file path.
+            if data.get("errors"):
+                errors = data["errors"]
+                # Gracefully handle API plan limitations (e.g., Free tier max pages)
+                if isinstance(errors, dict) and "plan" in errors:
+                    logger.warning(
+                        f"API plan limitation reached on page {current_page}. "
+                        f"Stopping pagination. Reason: {errors['plan']}"
+                    )
+                    break
+                # Raise exception for any other API errors
+                raise ValueError(f"API returned errors: {errors}")
 
-    Raises:
-        OSError: If directory creation or file writing fails.
-        TypeError: If the data object is not JSON serializable.
-    """
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-    except OSError as e:
-        logger.error(f"Failed to write JSON to {output_path}: {e}")
-        raise
+            # Initialize the payload structure and determine total pages on the first request
+            if current_page == 1:
+                consolidated_payload = data.copy()
+                total_pages = data.get("paging", {}).get("total", 1)
+
+            records = data.get("response", [])
+
+            # Handle both list (e.g., players, fixtures) and dict (e.g., team statistics) response formats
+            if isinstance(records, list):
+                all_records.extend(records)
+            else:
+                all_records.append(records)
+
+            logger.info(
+                f"Page {current_page} fetched. Items in current batch: "
+                f"{len(records) if isinstance(records, list) else 1}"
+            )
+
+            # Apply rate limiting delay if there are more pages to fetch
+            if current_page < total_pages and delay_seconds > 0:
+                time.sleep(delay_seconds)
+
+            current_page += 1
+
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error on page {current_page} for {url}: {e}")
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error on page {current_page} for {url}: {e}")
+            raise
+
+    # Update metadata in the final consolidated object
+    consolidated_payload["response"] = all_records
+    consolidated_payload["results"] = len(all_records)
+    if "paging" in consolidated_payload:
+        consolidated_payload["paging"]["current"] = total_pages
+
+    logger.info(
+        f"Pagination completed: Total {len(all_records)} records collected across {total_pages} pages."
+    )
+    return consolidated_payload
 
 
 def upload_to_s3(raw_data: dict, bucket: str, s3_key: str) -> None:

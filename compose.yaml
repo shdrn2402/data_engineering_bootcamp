@@ -2,10 +2,12 @@ services:
   ingest:
     build: .
     container_name: football-ingest
-    user: "${UID:-1000}:${GID:-1000}"
-    volumes:
-      - ./data/raw:/app/data/raw
+    
+    # Uncomment the 'user' and 'volumes' directives below if you need to 
+    # write files (e.g., application logs) directly to the host machine later.
+    # user: "${UID:-1000}:${GID:-1000}"
+    # volumes:
+    #   - ./data/raw:/app/data/raw
+    
     env_file:
       - .env
-
-    

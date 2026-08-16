@@ -1,15 +1,36 @@
 api:
   base_url: "https://v3.football.api-sports.io"
   endpoints:
+    teams:
+      path: "/teams"
+      required_params: ["league", "season"]
+      s3_template: "raw/teams/league_id={league}/season={season}/ingest_date={ingest_date}"
+    teams_statistics:
+      path: "/teams/statistics"
+
+    teams_seasons: "/teams/seasons"
+    standings: "/standings"
     fixtures: "/fixtures"
-    teams: "/teams"
-    players: "/players"
-    statistics: "/statistics"
+    fixtures_rounds: "/fixtures/rounds"
+    fixtures_head_to_head: "/fixtures/headtohead"
+    fixtures_statistics: "/fixtures/statistics"
+    fixtures_events: "/fixtures/events"
+    fixtures_lineups: "/fixtures/lineups"
+    fixtures_players: "/fixtures/players"
+    players_seasons: "/players/seasons"
+    players_profiles: "/players/profiles"
+    players_statistics: "/players/statistics"
+    players_teams: "/players/teams"
+    players_squads: "/players/squads"
+    players_top_scorers: "/players/topscorers"
+    players_top_assists: "/players/topassists"
+    players_top_yellowcards: "/players/topyellowcards"
+    players_top_redcards: "/players/topredcards"
+    injuries: "/injuries"
+    transfers: "/transfers"
   headers:
     key_name: "x-apisports-key"
   limits:
     delay_seconds: 7  # Free tier limit: 10 req/min. Do not decrease to prevent 429 Too Many Requests.
     timeout_connect: 10  # Connection timeout in seconds.
     timeout_read: 30  # Read timeout in seconds.
-aws:
-  s3_bucket: "data-eng-bootcamp-api-football-landing-dev"

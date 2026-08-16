@@ -22,6 +22,4 @@ COPY --chown=ingest_user:ingest_group configs/ configs/
 
 COPY --chown=ingest_user:ingest_group src/ src/
 
-RUN mkdir -p data/raw
-
 ENTRYPOINT ["python", "src/ingest.py"]
