@@ -1,9 +1,16 @@
 variable "aws_region" {
-  description = "aws_s3_region"
   type        = string
+  description = "AWS region to deploy resources in"
+  default     = "eu-central-1"
 }
 
-variable "s3_bucket_name" {
-  description = "aws_s3_bucket_name"
+variable "project_name" {
   type        = string
+  description = "Project name for tagging and naming resources"
+  default     = "football-data-pipeline"
+}
+
+variable "environment" {
+  type        = string
+  description = "Deployment environment (e.g. dev, prod)"
 }

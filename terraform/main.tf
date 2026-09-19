@@ -7,18 +7,19 @@ terraform {
   }
 }
 
-# Configure the AWS Provider
 provider "aws" {
   region = var.aws_region
+
+  default_tags {
+    tags = local.common_tags
+  }
 }
 
-# Create an S3 bucket for the data landing zone
 resource "aws_s3_bucket" "data_landing_zone" {
-  bucket        = var.s3_bucket_name
+  bucket        = local.s3_landing_bucket_name
   force_destroy = true
 }
 
-# Create a public access block for the S3 bucket
 resource "aws_s3_bucket_public_access_block" "data_landing_zone_access_block" {
   bucket = aws_s3_bucket.data_landing_zone.id
 
@@ -28,23 +29,15 @@ resource "aws_s3_bucket_public_access_block" "data_landing_zone_access_block" {
   restrict_public_buckets = true
 }
 
-# Create an IAM user for the ingestion script
 resource "aws_iam_user" "data_loader" {
-  name          = "raw-data-loader"
+  name          = local.iam_data_loader_name
   force_destroy = true
-
-  tags = {
-    project = "football-data-pipeline"
-    owner   = "data-eng-bootcamp"
-  }
 }
 
-# Create access keys for the IAM user
 resource "aws_iam_access_key" "data_loader_keys" {
   user = aws_iam_user.data_loader.name
 }
 
-# Create an IAM policy for the ingestion script
 data "aws_iam_policy_document" "data_loader_policy" {
   statement {
     effect = "Allow"
@@ -56,14 +49,12 @@ data "aws_iam_policy_document" "data_loader_policy" {
   }
 }
 
-# Apply the IAM policy to the IAM user
 resource "aws_iam_user_policy" "data_loader_policy" {
-  name   = "data-loader-policy"
+  name   = local.iam_data_loader_policy
   user   = aws_iam_user.data_loader.name
   policy = data.aws_iam_policy_document.data_loader_policy.json
 }
 
-# Outputs for .env
 output "loader_access_key_id" {
   description = "AWS Access Key ID for data ingestion"
   value       = aws_iam_access_key.data_loader_keys.id

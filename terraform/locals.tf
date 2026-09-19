@@ -1,0 +1,11 @@
+locals {
+  s3_landing_bucket_name = "${var.project_name}-landing-zone-${var.environment}"
+  iam_data_loader_name   = "${var.project_name}-data-loader-${var.environment}"
+  iam_data_loader_policy = "${var.project_name}-data-loader-policy-${var.environment}"
+
+  common_tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
