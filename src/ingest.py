@@ -72,7 +72,7 @@ def ingest_data(endpoint: str, league: int, season: int) -> None:
 
     # Uploading the RAW data to S3
     ingest_date = datetime.now(UTC).strftime("%Y-%m-%d")
-    bucket_name = config["s3_bucket"]
+    bucket_name = config["aws_s3_landing_bucket"]
     s3_key = f"raw/{endpoint}/league_id={league}/season={season}/ingest_date={ingest_date}/data.json"
 
     upload_to_s3(raw_data, bucket_name, s3_key)

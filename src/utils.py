@@ -34,7 +34,7 @@ def load_config(config_path: str | Path, env_path: str | Path) -> dict:
     try:
         config = yaml.safe_load(config_path.read_text())
         config["api_football_key"] = os.environ["API_FOOTBALL_KEY"]
-        config["s3_bucket"] = os.environ["S3_BUCKET_NAME"]
+        config["aws_s3_landing_bucket"] = os.environ["AWS_S3_LANDING_BUCKET_NAME"]
     except FileNotFoundError as e:
         logger.error(f"Configuration file not found: {e}")
         raise
@@ -77,7 +77,6 @@ def fetch_data(
         dict: Consolidated JSON payload containing all items in the 'response' array/object.
     """
     params = (query_params or {}).copy()
-    params.setdefault("page", 1)
 
     all_records: list = []
     current_page = 1
@@ -85,7 +84,8 @@ def fetch_data(
     consolidated_payload: dict = {}
 
     while current_page <= total_pages:
-        params["page"] = current_page
+        if current_page > 1:
+            params["page"] = current_page
         logger.info(f"Fetching page {current_page}/{total_pages} from {url}...")
 
         try:
