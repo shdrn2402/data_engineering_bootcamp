@@ -83,9 +83,16 @@ logger = logging.getLogger(__name__)
     type=int,
     help="Specify the player ID to filter data for a specific player.",
 )
+@click.option(
+    "--logical_date",
+    default=datetime.now(UTC).strftime("%Y-%m-%d"),
+    type=str,
+    help="Specify the logical date for the data ingestion process. Default is the current UTC date.",
+)
 def ingest_data(
     endpoint: str,
     league: int,
+    logical_date: str,
     season: int,
     team: int | None,
     h2h: str | None,
@@ -140,11 +147,10 @@ def ingest_data(
     logger.info(f"Data successfully fetched. Payload snippet: {str(raw_data)[:300]}...")
 
     # Uploading the RAW data to S3
-    ingest_date = datetime.now(UTC).strftime("%Y-%m-%d")
     bucket_name = config["aws_s3_landing_bucket"]
     s3_key = build_s3_key(
         template_string=endpoint_config["s3_template"],
-        ingest_date=ingest_date,
+        ingest_date=logical_date,
         **query_params,
     )
 
