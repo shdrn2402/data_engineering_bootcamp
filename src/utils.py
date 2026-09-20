@@ -150,6 +150,28 @@ def fetch_data(
     return consolidated_payload
 
 
+def build_s3_key(template_string: str, **kwargs) -> str:
+    """Constructs an S3 key by formatting a template string with provided keyword arguments.
+
+    Args:
+        template_string (str): The S3 key template containing placeholders.
+        **kwargs: Key-value pairs to replace placeholders in the template.
+
+    Returns:
+        str: The formatted S3 key ready for use in S3 operations.
+    """
+    try:
+        s3_key = template_string.format(**kwargs) + "/data.json"
+    except KeyError as e:
+        logger.error(f"Missing placeholder for S3 key construction: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error constructing S3 key from template: {e}")
+        raise
+
+    return s3_key
+
+
 def upload_to_s3(raw_data: dict, bucket: str, s3_key: str) -> None:
     """Uploads a dictionary as a JSON object to an AWS S3 bucket.
 

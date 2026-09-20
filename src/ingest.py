@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from utils import fetch_data, load_config, upload_to_s3
+from utils import build_s3_key, fetch_data, load_config, upload_to_s3
 
 # Configure the root logger for the entire project
 logging.basicConfig(
@@ -17,7 +17,31 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--endpoint",
     type=click.Choice(
-        ["fixtures", "teams", "players", "transfers"], case_sensitive=False
+        [
+            "fixtures",
+            "fixtures_events",
+            "fixtures_head_to_head",
+            "fixtures_lineups",
+            "fixtures_players",
+            "fixtures_rounds",
+            "fixtures_statistics",
+            "injuries",
+            "players_profiles",
+            "players_seasons",
+            "players_squads",
+            "players_statistics",
+            "players_teams",
+            "players_top_assists",
+            "players_top_redcards",
+            "players_top_scorers",
+            "players_top_yellowcards",
+            "standings",
+            "teams",
+            "teams_seasons",
+            "teams_statistics",
+            "transfers",
+        ],
+        case_sensitive=False,
     ),
     default="fixtures",
     required=True,
@@ -35,7 +59,39 @@ logger = logging.getLogger(__name__)
     type=int,
     help="Specify the season year (format YYYY) for which to ingest data. Default is 2024.",
 )
-def ingest_data(endpoint: str, league: int, season: int) -> None:
+@click.option(
+    "--team",
+    default=None,
+    type=int,
+    help="Specify the team ID to filter data for a specific team.",
+)
+@click.option(
+    "--h2h",
+    default=None,
+    type=str,
+    help="Specify the head-to-head team IDs (hyphen-separated) to filter data for specific matchups.",
+)
+@click.option(
+    "--fixture",
+    default=None,
+    type=int,
+    help="Specify the fixture ID to filter data for a specific match.",
+)
+@click.option(
+    "--player",
+    default=None,
+    type=int,
+    help="Specify the player ID to filter data for a specific player.",
+)
+def ingest_data(
+    endpoint: str,
+    league: int,
+    season: int,
+    team: int | None,
+    h2h: str | None,
+    fixture: int | None,
+    player: int | None,
+) -> None:
 
     # Loading configuration and environment variables
     # Dynamically resolve the absolute path to the project root
@@ -52,14 +108,27 @@ def ingest_data(endpoint: str, league: int, season: int) -> None:
     logger.info(f"Configuration successfully loaded: {safe_config}")
 
     # Retrieving a RAW data payload from the API
-    url = config["api"]["base_url"] + config["api"]["endpoints"][endpoint]
+    endpoint_config = config["api"]["endpoints"][endpoint]
+    url = config["api"]["base_url"] + endpoint_config["path"]
     headers = {config["api"]["headers"]["key_name"]: config["api_football_key"]}
     timeout = (
         config["api"]["limits"]["timeout_connect"],
         config["api"]["limits"]["timeout_read"],
     )
     delay_seconds = config["api"]["limits"]["delay_seconds"]
-    query_params = {"league": league, "season": season}
+
+    all_args = {
+        "league": league,
+        "season": season,
+        "team": team,
+        "h2h": h2h,
+        "fixture": fixture,
+        "player": player,
+    }
+    query_params = {}
+    for el in endpoint_config["required_params"]:
+        if all_args[el] is not None:
+            query_params[el] = all_args[el]
 
     raw_data = fetch_data(
         url=url,
@@ -73,7 +142,11 @@ def ingest_data(endpoint: str, league: int, season: int) -> None:
     # Uploading the RAW data to S3
     ingest_date = datetime.now(UTC).strftime("%Y-%m-%d")
     bucket_name = config["aws_s3_landing_bucket"]
-    s3_key = f"raw/{endpoint}/league_id={league}/season={season}/ingest_date={ingest_date}/data.json"
+    s3_key = build_s3_key(
+        template_string=endpoint_config["s3_template"],
+        ingest_date=ingest_date,
+        **query_params,
+    )
 
     upload_to_s3(raw_data, bucket_name, s3_key)
     logger.info(
