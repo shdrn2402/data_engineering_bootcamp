@@ -1,13 +1,71 @@
 services:
   ingest:
     build: .
+    image: football-ingest:latest
     container_name: football-ingest
-    
     # Uncomment the 'user' and 'volumes' directives below if you need to 
     # write files (e.g., application logs) directly to the host machine later.
     # user: "${UID:-1000}:${GID:-1000}"
     # volumes:
     #   - ./data/raw:/app/data/raw
-    
-    env_file:
-      - .env
+    env_file: .env
+
+  kestra_db:
+    image: postgres:18
+    container_name: kestra-database
+    env_file: .env
+    volumes:
+      - kestra_db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kestra:
+    image: kestra/kestra:v2.0
+    container_name: football-kestra
+    user: root
+    command: server standalone
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      KESTRA_CONFIGURATION: |
+        kestra:
+          server:
+            basicAuth:
+              enabled: true
+              username: ${KESTRA_USER}
+              password: ${KESTRA_PASSWORD}
+          repository:
+            type: postgres
+          queue:
+            type: postgres
+          storage:
+            type: local
+            local:
+              basePath: /app/storage
+        datasources:
+          postgres:
+            url: jdbc:postgresql://kestra_db:5432/${POSTGRES_DB}
+            driverClassName: org.postgresql.Driver
+            username: ${POSTGRES_USER}
+            password: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - kestra_data:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/kestra-wd:/tmp/kestra-wd
+    depends_on:
+      kestra_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kestra_db_data:
+  kestra_data:
